@@ -2,3 +2,5 @@ base_drops/*
 PROJECT_*
 OUTPUT
 TEMP
+apkbloat.sh
+apks.txt
