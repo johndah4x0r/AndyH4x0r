@@ -1,14 +1,9 @@
 #!/bin/bash
-
-#     _             _     _ _  ___ _       _
-#    / \   _ __ ___| |__ (_) |/ (_) |_ ___| |__   ___ _ __
-#   / _ \ | '__/ __| '_ \| | ' /| | __/ __| '_ \ / _ \ '_ \
-#  / ___ \| | | (__| | | | | . \| | || (__| | | |  __/ | | |
-# /_/   \_\_|  \___|_| |_|_|_|\_\_|\__\___|_| |_|\___|_| |_|
 #
-# Copyright 2014-2015 Łukasz "JustArchi" Domeradzki
-# Contact: JustArchi@JustArchi.net
-#
+# /====\                   |   | |   |      /===\
+# |    | |\  | |==\  \  /  |---| |===| \  / |   | /---\
+# |----| | \ | |   |  \/   |   |    |   \/  |   | |
+# |    | |  \| |==/   /    |   |    |  / \  \===/ |
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -423,26 +418,26 @@ NEWPROJECT_STOCK() {
         DEL_PROJECT
         return 1
     fi
-    TRY_MOUNT "$ACTIVE_PROJECT/system.img" "/tmp/ArchiKitchenLOOP" || (DEL_PROJECT; return 1)
+    TRY_MOUNT "$ACTIVE_PROJECT/system.img" "/tmp/H4X0RLOOP" || (DEL_PROJECT; return 1)
     echo "Extracting everything from mounted system partition..."
-    ROOT_EXECUTE "cp -R /tmp/ArchiKitchenLOOP/* $ACTIVE_PROJECT/system/"
-    ROOT_EXECUTE "umount /tmp/ArchiKitchenLOOP"
+    ROOT_EXECUTE "cp -R /tmp/H4X0RLOOP/* $ACTIVE_PROJECT/system/"
+    ROOT_EXECUTE "umount /tmp/H4X0RLOOP"
     rm -f "$ACTIVE_PROJECT/system.img"
 
     # CACHE
     if [[ ! -z "$CACHEIMG" ]]; then
         cp "$CACHEIMG" "$ACTIVE_PROJECT/cache.img"
-        TRY_MOUNT "$ACTIVE_PROJECT/cache.img" "/tmp/ArchiKitchenLOOP"
-        if [[ -f "/tmp/ArchiKitchenLOOP/recovery/sec_csc.zip" ]]; then
+        TRY_MOUNT "$ACTIVE_PROJECT/cache.img" "/tmp/H4X0RLOOP"
+        if [[ -f "/tmp/H4X0RLOOP/recovery/sec_csc.zip" ]]; then
             echo "Found common Samsung sec_csc.zip file, extracting it and merging with the project"
-            ROOT_EXECUTE "unzip -q /tmp/ArchiKitchenLOOP/recovery/sec_csc.zip -d $ACTIVE_PROJECT/"
+            ROOT_EXECUTE "unzip -q /tmp/H4X0RLOOP/recovery/sec_csc.zip -d $ACTIVE_PROJECT/"
         else
             echo "Could not detect any known cache format"
             echo "This is typical when cache doesn't contain any valuable files, such as sec_csc.zip in case of Samsung ROMs"
-            echo "Extract everything you need from /tmp/ArchiKitchenLOOP before going to the next step"
+            echo "Extract everything you need from /tmp/H4X0RLOOP before going to the next step"
             PRESS_ENTER
         fi
-        ROOT_EXECUTE "umount /tmp/ArchiKitchenLOOP"
+        ROOT_EXECUTE "umount /tmp/H4X0RLOOP"
         rm -f "$ACTIVE_PROJECT/cache.img"
     fi
 
@@ -807,13 +802,13 @@ KERNEL_EXTRACT() {
                         CBIN="mtk"
                         DBIN="mtk"
                     else
-                        echo "ERROR: Could not find any valid method to unpack this kernel. Either it's not valid, or ArchiKitchen can't find out how to deal with it"
+                        echo "ERROR: Could not find any valid method to unpack this kernel. Either it's not valid, or the h4x0r can't find out how to deal with it"
                         KERNEL_ABORT
                         PRESS_ENTER
                         return 1
                     fi
                 fi
-                echo "$CBIN" > "$ACTIVE_PROJECT/kernel/ArchiKitchen-compression-method" # Store for future use, if user decides to shut down the kitchen
+                echo "$CBIN" > "$ACTIVE_PROJECT/kernel/AndyH4x0r-compression-method" # Store for future use, if user decides to shut down the kitchen
                 if [[ "$CBIN" != "mtk" && "$DBIN" != "mtk" ]]; then
                     cd "$ACTIVE_PROJECT/kernel/boot.img-ramdisk"
                     $DBIN ../boot.img-ramdisk.gz | cpio -i
@@ -833,8 +828,8 @@ KERNEL_REPACK() {
     local EXTRA=()
     if [[ -d "$ACTIVE_PROJECT/kernel" ]]; then
         if [[ -d "$ACTIVE_PROJECT/kernel/boot.img-ramdisk" ]]; then
-            if [[ -z "$CBIN" && -f "$ACTIVE_PROJECT/kernel/ArchiKitchen-compression-method" ]]; then
-                CBIN="$(cat "$ACTIVE_PROJECT/kernel/ArchiKitchen-compression-method")" # Load compression method if we need it and have it stored
+            if [[ -z "$CBIN" && -f "$ACTIVE_PROJECT/kernel/AndyH4x0r-compression-method" ]]; then
+                CBIN="$(cat "$ACTIVE_PROJECT/kernel/AndyH4x0r-compression-method")" # Load compression method if we need it and have it stored
             elif [[ -z "$CBIN" ]]; then
                 echo "ERROR: Can't decide which compression method to use!"
                 KERNEL_ABORT
@@ -967,7 +962,7 @@ BUILD() {
             mv -f "OUTPUT/$ACTIVE_PROJECT.zip" "OUTPUT/$NAME"
     esac
     echo "All done, your ROM should be ready!"
-    echo "Thank you for using ArchiKitchen!"
+    echo "Thank you for using AndyH4x0r!"
     PRESS_ENTER
     exit 0
 }
@@ -997,7 +992,6 @@ DEODEX_FILE() {
         rm -f "$FILEDIR/$ODEX"
         return 0
     fi
-    echo "Disassembling $ODEX..."
     rm -rf "$TEMPDIR/$ODEX"
     mkdir -p "$TEMPDIR/$ODEX"
     java -jar -Xmx1024M "$TOOLSDIR/smali/baksmali.jar" -a "$API" -d "$ACTIVE_PROJECT/system/framework" -x "$FILEDIR/$ODEX" -o "$TEMPDIR/$ODEX/DECOMPILED"
@@ -1007,19 +1001,16 @@ DEODEX_FILE() {
         PRESS_ENTER
         return 1
     fi
-    echo "Assembling disassembled $ODEX into classes.dex..."
     java -jar -Xmx1024M "$TOOLSDIR/smali/smali.jar" -a "$API" -o "$TEMPDIR/$ODEX/classes.dex" "$TEMPDIR/$ODEX/DECOMPILED"
     if [[ $? -ne 0 || ! -f "$TEMPDIR/$ODEX/classes.dex" ]]; then
         echo "ERROR: Could not assemble disassembled $ODEX, aborting!"
         rm -rf "$TEMPDIR/$ODEX"
-        PRESS_ENTER
         return 1
     fi
-    echo "Packing back classes.dex into $FILE..."
     zip -jrq "$FILEDIR/$FILE" "$TEMPDIR/$ODEX/classes.dex"
     rm -f "$FILEDIR/$ODEX"
     rm -rf "$TEMPDIR/$ODEX"
-    echo "SUCCESS: $FILE"
+    return 0
 }
 
 # Deodexes everything
@@ -1212,38 +1203,47 @@ ADB() {
 # Prints banner
 PRINT_BANNER() {
     clear
-    echo "    _             _     _ _  ___ _       _"
-    echo "   / \   _ __ ___| |__ (_) |/ (_) |_ ___| |__   ___ _ __"
-    echo "  / _ \ | '__/ __| '_ \| | ' /| | __/ __| '_ \ / _ \ '_ \\"
-    echo " / ___ \| | | (__| | | | | . \| | || (__| | | |  __/ | | |"
-    echo "/_/   \_\_|  \___|_| |_|_|_|\_\_|\__\___|_| |_|\___|_| |_|"
+    echo "/====\\                   |   | |   | \\   /  /===\\"
+    echo "|    | |\\  | |==\\  \\  /  |---| |===|  \\ /   |   | /---\\"
+    echo "|----| | \\ | |   |  \\/   |   |     |  /\\    |   | |"
+    echo "|    | |  \\| |==/   /    |   |     | /  \\   \\===/ |"
     echo
-    echo "Developed by JustArchi"
-    echo "Original thread: $XDALINK"
+    echo "Originally developed by 'JustArchi' - Revived by 'johndah4x0r'"
+    echo "Original thread: ${XDALINK}"
     PRINT_LINE
 }
 
+PRINT_BANNER_NEUTRAL() {
+    clear
+    echo "/====\\                   |   | |   | \\   /  /===\\"
+    echo "|    | |\\  | |==\\  \\  /  |---| |===|  \\ /   |   | /---\\"
+    echo "|----| | \\ | |   |  \\/   |   |     |  /\\    |   | |"
+    echo "|    | |  \\| |==/   /    |   |     | /  \\   \\===/ |"
+    PRINT_LINE
+}
 # Prints status of the project
 PRINT_PROJECT_STATUS() {
+    local ALLFINE
+    MESG=""
     ALLFINE=1
     if [[ -d "$ACTIVE_PROJECT/kernel" ]]; then
         ALLFINE=0
-        echo "WARNING: Unpacked kernel found"
+        MESG+="Unpacked kernel found!\n"
     fi
     if [[ ! -f "$ACTIVE_PROJECT/boot.img" ]]; then
         ALLFINE=0
-        echo "WARNING: No boot.img found, ROM will not boot properly"
+        MESG+="No boot.img found, ROM will not boot properly!\n"
     fi
     if [[ ! -d "$ACTIVE_PROJECT/META-INF" ]]; then
         ALLFINE=0
-        echo "WARNING: No META-INF folder found, this is not a ROM"
+        MESG+="No META-INF folder found, this is not a ROM!\n"
     fi
-    echo -n "Project status: "
     if [[ "$ALLFINE" -eq 1 ]]; then
-        echo "OK"
+        STAT="OK"
     else
-        echo "WARNING"
+        STAT="WARNING"
     fi
+    echo "Project status: $STAT - Choose 'ms' option for more information." >&2
     PRINT_LINE
 }
 
@@ -1254,45 +1254,53 @@ PRINT_ROM_STATUS() {
         ARCH="$(grep -i "ro.product.cpu.abi=" "$ACTIVE_PROJECT/system/build.prop" | head -n 1 | cut -d'=' -f2)"
     fi
     echo "$ARCH]"
-    echo
+    PRINT_LINE
+}
 
-    echo -n "ArchiDroid Init.d? "
+# Print more status
+PRINT_MORE_STATUS() {
+    PRINT_BANNER_NEUTRAL
+    echo "Project status: $STAT"
+    echo "Warnings:"
+    echo -ne "$MESG"
+    PRINT_LINE
+    echo -n "ArchiDroid Init.d: "
     if [[ ! -f "$ACTIVE_PROJECT/system/bin/debuggerd.real" ]]; then
         echo "[NO]"
     else
         echo "[YES]"
     fi
-    echo -n "Debloated? "
+    echo -n "Debloated: "
     if [[ -d "$ACTIVE_PROJECT/bloatware" ]]; then
         echo "[YES]"
     else
         echo "[NO]"
     fi
-    echo -n "Deodexed? "
+    echo -n "Deodexed: "
     if [[ -f "$ACTIVE_PROJECT/system/framework/framework.odex" ]]; then
         echo "[NO]"
     else
         echo "[YES]"
     fi
-    echo -n "Zipaligned? "
+    echo -n "Zipaligned: "
     if [[ -f "$ACTIVE_PROJECT/system/framework/framework-res.apk" && "$("$ZIPALIGN" -c "$ALIGN" "$ACTIVE_PROJECT/system/framework/framework-res.apk"; echo $?)" -eq 0 ]]; then
         echo "[YES]"
     else
         echo "[NO]"
     fi
-    echo -n "Rooted? "
+    echo -n "Rooted: "
     if [[ ! -f "$ACTIVE_PROJECT/system/xbin/su" ]]; then
         echo "[NO]"
     else
         echo "[YES]"
     fi
-    echo -n "Busybox? "
+    echo -n "Busybox: "
     if [[ ! -f "$ACTIVE_PROJECT/system/xbin/busybox" ]]; then
         echo "[NO]"
     else
         echo "[YES]"
     fi
-    echo -n "KNOX? "
+    echo -n "KNOX: "
     if [[ -f "$ACTIVE_PROJECT/system/app/KNOXAgent.apk" ]]; then
         echo "[YES]"
     else
@@ -1300,13 +1308,14 @@ PRINT_ROM_STATUS() {
     fi
     if [[ -d "$ACTIVE_PROJECT/kernel/boot.img-ramdisk" ]]; then
         PRINT_LINE
-        echo -n "ADB? "
+        echo "KERNEL EXTRACTED"
+        echo -n "ADB: "
         if [[ "$(grep -qi "ro.adb.secure=0" "$ACTIVE_PROJECT/kernel/boot.img-ramdisk/default.prop"; echo $?)" -eq 0 ]]; then
             echo "[INSECURE]"
         else
             echo "[SECURE]"
         fi
-        echo -n "Kernel Init.d? "
+        echo -n "Kernel Init.d: "
         if [[ "$(grep -qi "sysinit" "$ACTIVE_PROJECT/kernel/boot.img-ramdisk/init.rc"; echo $?)" -eq 0 ]]; then
             echo "[YES]"
         else
@@ -1314,6 +1323,11 @@ PRINT_ROM_STATUS() {
         fi
     fi
     PRINT_LINE
+    echo "Originally developed by 'JustArchi' - Forked & revived by 'johndah4x0r'"
+    echo "Original thread: ${XDALINK}"
+    echo
+    read -p "Press Enter to continue..." junk
+    return
 }
 
 # Prints available switches
@@ -1322,30 +1336,20 @@ PRINT_SWITCHES() {
     echo "bloat - Bloat/Debloat ROM"
     echo "r     - Enable/Disable Root"
     echo "b     - Enable/Disable Busybox"
-    echo "-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-"
     echo "d     - Deodex Everything"
     echo "z     - Zipalign Everything"
     echo "knox  - Remove KNOX"
-    echo "-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-"
-    if [[ -d "$ACTIVE_PROJECT/kernel/boot.img-ramdisk" ]]; then
-        echo "kr    - Repack kernel (apply all ramdisk changes)"
-        echo "ka    - Abort repacking (abort all ramdisk changes)"
-        echo
-        echo "i     - Add Init.d Support (hardware kernel hook)"
-        echo "adb   - Enable/Disable insecure ADB"
-    elif [[ -f "$ACTIVE_PROJECT/boot.img" ]]; then
-        echo "ku    - Unpack kernel (this enables more options!)"
-    fi
-    echo "-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-"
+    echo "k     - Kernel/boot.img options"
+    PRINT_LINE
     echo "bb    - Build ROM (normal suggested mode)"
     echo "bbe   - Build ROM (expert mode, won't make any checks if your project is OK)"
-    PRINT_LINE
-    echo "ak    - Change ArchiKitchen settings"
+    echo "ak    - Change AndyH4x0r settings"
+    echo "ms    - Show more status information"
     echo "x     - Exit"
     PRINT_LINE
 }
 
-# Prints settings of the kitchen
+# Prints settings of the h4x0r
 PAGE_SETTINGS() {
     while :; do
         PRINT_BANNER
@@ -1356,12 +1360,12 @@ PAGE_SETTINGS() {
             echo "[NO]"
         fi
         PRINT_LINE
-        echo "Full performance mode tries to finish common ArchiKitchen tasks ASAP"
+        echo "Full performance mode tries to finish common h4x0r tasks ASAP"
         echo "This includes i.e. calling all job threads at once and waiting for them to"
         echo "finish instead of calling them one-by-one and blocking main thread"
-        echo "Due to that, OS may become unresponsive when ArchiKitchen is performing a task"
+        echo "Due to that, OS may become unresponsive when AndyH4x0r is performing a task"
         echo "Usually it's a good idea to keep it ON, unless you have a very good reason"
-        echo "for forcing ArchiKitchen to run in a single-thread mode"
+        echo "for forcing the h4x0r to run in a single-thread mode"
         PRINT_LINE
         echo "p - Full performance switch"
         echo "x - Go back"
@@ -1375,12 +1379,12 @@ PAGE_SETTINGS() {
                     FULLPERFORMANCE=1
                 fi
                 ;;
-            x|X) return 0
+            x|X) return 0 ;;
         esac
     done
 }
 
-# Auto-update feature of ArchiKitchen
+# Auto-update feature of AndyH4x0r
 CHECK_UPDATE() {
     if [[ -d ".git" && ! -z "$(which git)" ]]; then
         echo "Auto-update in progress..."
@@ -1423,8 +1427,8 @@ CHECK_UPDATE() {
             git --no-pager log --abbrev-commit --decorate --date=relative --pretty=format:'%C(bold red)%h%Creset %C(bold green)(%cr)%Creset - %C(bold yellow)%s%Creset %C(bold blue)commited by%Creset %C(bold cyan)%an%Creset' "$OLDHEAD..$HEAD"
             echo # Beacause git log doesn't finish with newline
             echo "=========="
-            git pull -q "$REPO" "$GITHUBBRANCH" >/dev/null 2>&1 || (echo; echo "WARNING: ArchiKitchen could not apply update due to conflicts, forced update mode will be used now. Please make proper backups if you need any of your past projects before going to the next step"; PRESS_ENTER; git reset -q --hard; git clean -qfd; git pull -q "$REPO" "$GITHUBBRANCH")
-            echo "ArchiKitchen has been updated, it will now restart itself"
+            git pull -q "$REPO" "$GITHUBBRANCH" >/dev/null 2>&1 || (echo; echo "WARNING: AndyH4x0r could not apply update due to conflicts, forced update mode will be used now. Please make proper backups if you need any of your past projects before going to the next step"; PRESS_ENTER; git reset -q --hard; git clean -qfd; git pull -q "$REPO" "$GITHUBBRANCH")
+            echo "AndyH4x0r has been updated, it will now restart itself"
             PRESS_ENTER
             exec "$0"
         else
@@ -1432,6 +1436,36 @@ CHECK_UPDATE() {
             sleep 1
         fi
     fi
+}
+
+# Kernel options
+KERNEL_OPTS() {
+    local OPT
+    while :; do
+        PRINT_BANNER_NEUTRAL
+        echo "Kernel options"
+        PRINT_LINE
+        if [[ -d "$ACTIVE_PROJECT/kernel/boot.img-ramdisk" ]]; then
+            echo "kr    - Repack kernel (apply all ramdisk changes)"
+            echo "ka    - Abort repacking (abort all ramdisk changes)"
+            echo
+            echo "i     - Add Init.d Support (hardware kernel hook)"
+            echo "adb   - Enable/Disable insecure ADB"
+        elif [[ -f "$ACTIVE_PROJECT/boot.img" ]]; then
+            echo "ku    - Unpack kernel (this enables more options!)"
+        fi
+            echo "x     - Return to main menu"
+        read -p "CHOICE: " OPT
+        case $OPT in
+            i|I) INITD; break ;;
+            adb|ADB) ADB ;;
+            ku|KU) KERNEL_EXTRACT ;;
+            kr|KR) KERNEL_REPACK ;;
+            ka|KA) KERNEL_ABORT ;;
+            x|X) break ;;
+            *) continue ;;
+        esac
+    done
 }
 
 ############################
@@ -1479,13 +1513,13 @@ ZIPALIGN="./$TOOLSDIR/zipalign/$HOSTARCH/zipalign"
 cd "$(dirname "$0")"
 
 # Check if symlink support is present
-if [[ "$(ln -s archi archi.ln.test >/dev/null 2>&1; echo $?)" -ne 0 ]]; then
+if [[ "$(ln -s T1 T2 >/dev/null 2>&1; echo $?)" -ne 0 ]]; then
     echo "ERROR: Current kitchen location doesn't support symbolic links!"
     echo "Symbolic links cannot be used on Windows-based filesystems, such as FAT, NTFS, or VirtualBox shared folder mount on one of the previous"
-    echo "You must use ArchiKitchen in native Linux location, such as /root, /home/username, /tmp, or any other mountpoint, which supports symbolic links"
+    echo "You must use AndyH4x0r in native Linux location, such as /root, /home/username, /tmp, or any other mountpoint, which supports symbolic links"
     exit 1
 else
-    rm -f archi.ln.test
+    rm -f T2
 fi
 
 # Create our temporary directory
@@ -1508,7 +1542,7 @@ if [[ "$AUTOUPDATE" -eq 1 ]]; then
 fi
 
 while :; do
-    PRINT_BANNER
+    PRINT_BANNER_NEUTRAL
 
     if [[ -z "$ACTIVE_PROJECT" ]]; then
         SET_PROJECT
@@ -1529,12 +1563,8 @@ while :; do
         d|D) DEODEX ;;
         z|Z) ZIPALIGN ;;
         knox|KNOX) REMOVE_KNOX ;;
-
-        i|I) INITD ;;
-        adb|ADB) ADB ;;
-        ku|KU) KERNEL_EXTRACT ;;
-        kr|KR) KERNEL_REPACK ;;
-        ka|KA) KERNEL_ABORT ;;
+        ms|MS) PRINT_MORE_STATUS ;;
+        k|K) KERNEL_OPTS ;;
         bbe|BBE) BUILD "EXPERT" ;;
         bb|BB)
             if [[ "$ALLFINE" -eq 1 ]]; then
@@ -1544,7 +1574,7 @@ while :; do
                 PRESS_ENTER
             fi
             ;;
-        x|X) exit 0
+        x|X) clear; exit 0;;
     esac
 done
 
