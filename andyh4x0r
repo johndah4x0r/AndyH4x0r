@@ -241,16 +241,56 @@ DEL_PROJECT() {
     ACTIVE_PROJECT=""
 }
 
+# Deletes chosen project.
+DEL_PROJECTS() {
+    local PROJECT
+    while :; do
+        PRINT_BANNER_NEUTRAL
+        echo "Which project do you wanna delete?"
+        echo "================"
+        find . -type d -name "PROJECT_*"
+        echo "================"
+        read -e -p "Which project? [Press <Enter> to abort]: " PROJECT
+        if [ ! "$PROJECT" ]; then
+            break
+        fi
+
+        if [ ! -d "$PROJECT" ]; then
+            echo "Cannot find project: $PROJECT" >&2
+            read -p "Press <Enter> to continue... " junk
+            continue
+        fi
+
+        echo "Removing project: ${PROJECT}"
+        rm -rf "${PROJECT}"
+        echo "Done!"
+        sleep 1
+        continue
+    done
+
+
+}
 # Creates new project
 SET_NEWPROJECT() {
-    PRINT_BANNER
-    echo "Before you begin, you must specify what kind of the project you want to create"
+    local PROJECT
+    PRINT_BANNER_NEUTRAL
+    echo "Before you begin, you must specify tyep project type you want to create"
     echo
     echo "b - Create a Bare Bones project"
     echo "i - Create a ZIP-flashable ROM from stock partition image(s)"
     echo "z - Create a ZIP-flashable ROM from other ZIP-flashable ROM"
     echo
-    read -p "Which choice describes your case? [B/i/z]: " CHOICE
+    echo "x - Abort!"
+    read -p "Project type [B/i/z]: " CHOICE
+    if [ "$CHOICE" = "x" -o "$CHOICE" = "X" ]; then
+        return
+    fi
+    read -p "Project name (OK to leave empty): PROJECT_" NAME
+
+    if [ ! "${NAME}" ]; then
+        NAME="$(date '+%m%d%y_%H%M%S')"
+    fi
+    ACTIVE_PROJECT="PROJECT_${NAME}"
     case "$CHOICE" in
         i|I) NEWPROJECT_STOCK ;;
         z|Z) NEWPROJECT_ZIP ;;
@@ -262,15 +302,17 @@ SET_NEWPROJECT() {
 SET_PROJECT() {
     echo
     echo "You currently don't have any active project set"
-    echo "You can open any project you've created in the past or create a new one:"
+    echo "What do you wanna do?"
     echo
     echo "n - Create a new project"
     echo "e - Use existing project"
+    echo "d - Delete existing project"
     echo "x - Exit"
     read -p "Your choice: " CHOICE
     case "$CHOICE" in
         n|N) SET_NEWPROJECT ;;
         e|E) SET_OLDPROJECT ;;
+        d|D) DEL_PROJECTS ;;
         *) exit 0 ;;
     esac
 }
@@ -343,8 +385,6 @@ HANDLE_IMG() {
 
 # Creates a new bare project
 NEWPROJECT_BARE() {
-    ACTIVE_PROJECT="PROJECT_"
-    ACTIVE_PROJECT+="$(date '+%m%d%y_%H%M%S')"
     mkdir -p "$ACTIVE_PROJECT/system"
     BUILD_META_INF
     BUILD_UPDATER_SCRIPT
@@ -352,6 +392,7 @@ NEWPROJECT_BARE() {
 
 # Creates a new stock image-based project
 NEWPROJECT_STOCK() {
+    PRINT_BANNER_NEUTRAL
     echo "To create a ROM from stock partition images, make sure that you have:"
     echo
     echo "[REQUIRED] system.img - Partition image for /system partition"
@@ -359,7 +400,7 @@ NEWPROJECT_STOCK() {
     echo "[OPTIONAL] cache.img - Partition image for /cache partition"
     echo "[OPTIONAL] modem.bin - Raw modem image for modem block"
     echo
-    echo "Please notice that some ROMs may have other requirements, for example having cache.img as mandatory and not optional"
+    echo "Please notice that some ROMs may have other requirements, for eg: requiring 'cache.img' and not optional"
 
     local READY=0
     while [[ $READY -eq 0 ]]; do
@@ -403,7 +444,6 @@ NEWPROJECT_STOCK() {
         fi
     done
 
-    ACTIVE_PROJECT="PROJECT_$(date '+%m%d%y_%H%M%S')"
     echo "Creating $ACTIVE_PROJECT"
     mkdir -p "$ACTIVE_PROJECT/system"
 
@@ -413,7 +453,7 @@ NEWPROJECT_STOCK() {
     # SYSTEM
     HANDLE_IMG "$SYSTEMIMG" "$ACTIVE_PROJECT/system.img"
     if [ $? = "1" ]; then
-        echo "Failed to convert sparse image!" >&2
+        echo "Failed to copy/convert image file!" >&2
         PRESS_ENTER
         DEL_PROJECT
         return 1
@@ -461,13 +501,39 @@ NEWPROJECT_STOCK() {
 
 # Creates a new zip-based project
 NEWPROJECT_ZIP() {
-    NEWPROJECT_BARE # TODO
+    PRINT_BANNER_NEUTRAL
+    read -e -p "Location of ZIP-file: " SRC_ZIP
+    if [ ! -f "$(realpath "$SRC_ZIP" 2>/dev/null)" ]; then
+        echo "Cannot find ZIP file: $(basename "$SRC_ZIP")" >&2
+        read -p "Press [Enter] to continue..." junk
+        return 1
+    fi
+    echo "Creating barebones project... [TEMPLATE]"
+    NEWPROJECT_BARE
+
+    echo "Extracting ZIP file..."
+    unzip -o "$SRC_ZIP" -d "$ACTIVE_PROJECT" 
+
+    echo "Fixing permissions..."
+    # Fix permissions
+    ROOT_EXECUTE "chown -hR $CUSER.$CUSER $ACTIVE_PROJECT"
+    ROOT_EXECUTE "chmod -R 755 $ACTIVE_PROJECT"
+
+    echo "Generating required files..."
+    # Generate required files
+    rm -rf "$ACTIVE_PROJECT/META-INF" # In case we have any bloat from sec_csc.zip or similar
+    BUILD_META_INF
+    BUILD_UPDATER_SCRIPT
+    PRESS_ENTER
+    SET_KERNEL
+    SET_MODEM
+    echo "Done!"
 }
 
 # Sets kernel
 SET_KERNEL() {
     if [[ -f "$ACTIVE_PROJECT/boot.img" ]] && ([[ "$(grep -qi "boot.img" "$ACTIVE_PROJECT/$META_INF/updater-script"; echo $?)" -ne 0 || "$(grep -qi "/tmp/invalid_kernel_path" "$ACTIVE_PROJECT/$META_INF/updater-script"; echo $?)" -eq 0 ]]); then
-        PRINT_BANNER
+        PRINT_BANNER_NEUTRAL
         echo "WARNING! Kernel has been found but there's no path in the current updater-script"
         echo "This is typical when you're converting stock image partition to ZIP-flashable ROM"
         local MODEL="$(grep -i "ro.product.device=" "$ACTIVE_PROJECT/system/build.prop" | head -n 1 | cut -d'=' -f2)"
@@ -507,7 +573,7 @@ SET_KERNEL() {
 # Sets modem
 SET_MODEM() {
     if [[ -f "$ACTIVE_PROJECT/modem.bin" ]] && ([[ "$(grep -qi "modem.bin" "$ACTIVE_PROJECT/$META_INF/updater-script"; echo $?)" -ne 0 || "$(grep -qi "/tmp/invalid_modem_path" "$ACTIVE_PROJECT/$META_INF/updater-script"; echo $?)" -eq 0 ]]); then
-        PRINT_BANNER
+        PRINT_BANNER_NEUTRAL
         echo "WARNING! Modem has been found but there's no path in the current updater-script"
         echo "This is typical when you're converting stock image partition to ZIP-flashable ROM"
         local MODEL="$(grep -i "ro.product.device=" "$ACTIVE_PROJECT/system/build.prop" | head -n 1 | cut -d'=' -f2)"
@@ -910,6 +976,9 @@ INITD() {
 
 # Builds ROM
 BUILD() {
+    clear
+    echo "Building ROM"
+    PRINT_LINE
     local EXPERT=0
     for ARG in "$@"; do
         case "$ARG" in
@@ -1203,10 +1272,10 @@ ADB() {
 # Prints banner
 PRINT_BANNER() {
     clear
-    echo "/====\\                   |   | |   | \\   /  /===\\"
-    echo "|    | |\\  | |==\\  \\  /  |---| |===|  \\ /   |   | /---\\"
-    echo "|----| | \\ | |   |  \\/   |   |     |  /\\    |   | |"
-    echo "|    | |  \\| |==/   /    |   |     | /  \\   \\===/ |"
+    echo "/====\\                   |   | |   | \\  /  /===\\"
+    echo "|    | |\\  | |==\\  \\  /  |---| |===|  \\/   |   | /---\\"
+    echo "|----| | \\ | |   |  \\/   |   |     |  /\\   |   | |"
+    echo "|    | |  \\| |==/   /    |   |     | /  \\  \\===/ |"
     echo
     echo "Originally developed by 'JustArchi' - Revived by 'johndah4x0r'"
     echo "Original thread: ${XDALINK}"
@@ -1215,15 +1284,14 @@ PRINT_BANNER() {
 
 PRINT_BANNER_NEUTRAL() {
     clear
-    echo "/====\\                   |   | |   | \\   /  /===\\"
-    echo "|    | |\\  | |==\\  \\  /  |---| |===|  \\ /   |   | /---\\"
-    echo "|----| | \\ | |   |  \\/   |   |     |  /\\    |   | |"
-    echo "|    | |  \\| |==/   /    |   |     | /  \\   \\===/ |"
+    echo "/====\\                   |   | |   | \\  /  /===\\"
+    echo "|    | |\\  | |==\\  \\  /  |---| |===|  \\/   |   | /---\\"
+    echo "|----| | \\ | |   |  \\/   |   |     |  /\\   |   | |"
+    echo "|    | |  \\| |==/   /    |   |     | /  \\  \\===/ |"
     PRINT_LINE
 }
 # Prints status of the project
 PRINT_PROJECT_STATUS() {
-    local ALLFINE
     MESG=""
     ALLFINE=1
     if [[ -d "$ACTIVE_PROJECT/kernel" ]]; then
@@ -1254,7 +1322,6 @@ PRINT_ROM_STATUS() {
         ARCH="$(grep -i "ro.product.cpu.abi=" "$ACTIVE_PROJECT/system/build.prop" | head -n 1 | cut -d'=' -f2)"
     fi
     echo "$ARCH]"
-    PRINT_LINE
 }
 
 # Print more status
@@ -1264,6 +1331,7 @@ PRINT_MORE_STATUS() {
     echo "Warnings:"
     echo -ne "$MESG"
     PRINT_LINE
+    echo "Project name: ${ACTIVE_PROJECT}"
     echo -n "ArchiDroid Init.d: "
     if [[ ! -f "$ACTIVE_PROJECT/system/bin/debuggerd.real" ]]; then
         echo "[NO]"
