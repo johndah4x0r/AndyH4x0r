@@ -4,6 +4,10 @@
 # |    | |\  | |==\  \  /  |---| |===| \  / |   | /---\
 # |----| | \ | |   |  \/   |   |    |   \/  |   | |
 # |    | |  \| |==/   /    |   |    |  / \  \===/ |
+#
+# Previously owned by: 'JustArchi'
+#
+# Author: JohnDaH4x0r
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -71,7 +75,7 @@ ROOT_EXECUTE() {
     if [[ "$CUSER" = "root" ]]; then
         $@ # Yes, we must break on spaces in this case
     else
-        echo "Root access is required! $@"
+        echo "Root access is required! $*"
         if [[ ! -z "$(which sudo)" ]]; then
             sudo $@ # Yes, we must break on spaces in this case
         else
@@ -162,7 +166,8 @@ BLACKLIST_REMOVE() {
             if [[ -z "$line" || "$line" = \#* ]]; then
                 continue
             fi
-            local TARGETS="$(echo "$line" | awk '{print $1}' | cut -d '"' -f2)"
+            local TARGET
+            TARGETS="$(echo "$line" | awk '{print $1}' | cut -d '"' -f2)"
             case "$TARGETS" in
                 /*) ;;
                 *.apk)
@@ -353,7 +358,7 @@ SET_OLDPROJECT() {
 
 # Handles image files
 HANDLE_IMG() {
-    local IMGFILE DEST HDR
+    local IMGFILE DEST INFO
     IMGFILE="$1"
     DESTFILE="$2"
 
@@ -410,7 +415,7 @@ NEWPROJECT_STOCK() {
         echo "=-=-=-=-=-=-=-=-="
         find base_drops/ -type f -iname "*system*"
         echo "=-=-=-=-=-=-=-=-="
-        read -p "system.img: " SYSTEMIMG
+        read -e -p "system.img: " SYSTEMIMG
 
         echo
         echo "Please fill a path for your boot.img file"
@@ -418,7 +423,7 @@ NEWPROJECT_STOCK() {
         echo "=-=-=-=-=-=-=-=-="
         find base_drops/ -type f -iname "*boot*"
         echo "=-=-=-=-=-=-=-=-="
-        read -p "boot.img: " BOOTIMG
+        read -e -p "boot.img: " BOOTIMG
 
         echo
         echo "Please fill a path for your cache.img file. Leave empty if you don't have one"
@@ -426,7 +431,7 @@ NEWPROJECT_STOCK() {
         echo "=-=-=-=-=-=-=-=-="
         find base_drops/ -type f -iname "*cache*"
         echo "=-=-=-=-=-=-=-=-="
-        read -p "cache.img: " CACHEIMG
+        read -e -p "cache.img: " CACHEIMG
 
         echo
         echo "Please fill a path for your modem.bin file. Leave empty if you don't have one"
@@ -434,7 +439,7 @@ NEWPROJECT_STOCK() {
         echo "=-=-=-=-=-=-=-=-="
         find base_drops/ -type f -iname "*modem*"
         echo "=-=-=-=-=-=-=-=-="
-        read -p "modem.bin: " MODEMIMG
+        read -e -p "modem.bin: " MODEMIMG
 
         if [[ -f "$SYSTEMIMG" && -f "$BOOTIMG" ]] && ([[ -z "$CACHEIMG" || -f "$CACHEIMG" ]]) && ([[ -z "$MODEMIMG" || -f "$MODEMIMG" ]]); then
             READY=1
@@ -512,7 +517,7 @@ NEWPROJECT_ZIP() {
     NEWPROJECT_BARE
 
     echo "Extracting ZIP file..."
-    unzip -o "$SRC_ZIP" -d "$ACTIVE_PROJECT" 
+    unzip -o "$SRC_ZIP" -d "$ACTIVE_PROJECT"
 
     echo "Fixing permissions..."
     # Fix permissions
@@ -536,7 +541,8 @@ SET_KERNEL() {
         PRINT_BANNER_NEUTRAL
         echo "WARNING! Kernel has been found but there's no path in the current updater-script"
         echo "This is typical when you're converting stock image partition to ZIP-flashable ROM"
-        local MODEL="$(grep -i "ro.product.device=" "$ACTIVE_PROJECT/system/build.prop" | head -n 1 | cut -d'=' -f2)"
+        local MODEL
+        MODEL="$(grep -i "ro.product.device=" "$ACTIVE_PROJECT/system/build.prop" | head -n 1 | cut -d'=' -f2)"
         if [[ -z "$MODEL" ]]; then
             echo "ERROR: Could not detect ROM model, setting of kernel failed"
             PRESS_ENTER
@@ -576,7 +582,8 @@ SET_MODEM() {
         PRINT_BANNER_NEUTRAL
         echo "WARNING! Modem has been found but there's no path in the current updater-script"
         echo "This is typical when you're converting stock image partition to ZIP-flashable ROM"
-        local MODEL="$(grep -i "ro.product.device=" "$ACTIVE_PROJECT/system/build.prop" | head -n 1 | cut -d'=' -f2)"
+        local MODEL
+        MODEL="$(grep -i "ro.product.device=" "$ACTIVE_PROJECT/system/build.prop" | head -n 1 | cut -d'=' -f2)"
         if [[ -z "$MODEL" ]]; then
             echo "ERROR: Could not detect ROM model, setting of modem failed"
             PRESS_ENTER
@@ -861,7 +868,8 @@ KERNEL_EXTRACT() {
                     echo "INFO: Trying to unpack the kernel as MTK..."
                     mkdir -p "$ACTIVE_PROJECT/kernel"
                     cd "$ACTIVE_PROJECT/kernel"
-                    local MTK_PROBE="$(../../$TOOLSDIR/mtk-$TOOLSDIR/unpack-MTK.pl "../boot.img" >/dev/null 2>&1; echo $?)"
+                    local MTK_PROBE
+                    MTK_PROBE="$(../../$TOOLSDIR/mtk-$TOOLSDIR/unpack-MTK.pl "../boot.img" >/dev/null 2>&1; echo $?)"
                     cd ../..
                     if [[ "$MTK_PROBE" -eq 0 ]]; then
                         echo "INFO: Success!"
@@ -1038,10 +1046,11 @@ BUILD() {
 
 # Deodexes single file
 DEODEX_FILE() {
-    local ODEX="$(basename "$1")"
-    local FILEDIR="$(dirname "$1")"
-    local FILE="$(echo "$ODEX" | rev | cut -d'.' -f2- | rev)"
-    local FILEEXTENSION=""
+    local ODEX FILEDIR FILE FILEEXTENSION
+    ODEX="$(basename "$1")"
+    FILEDIR="$(dirname "$1")"
+    FILE="$(echo "$ODEX" | rev | cut -d'.' -f2- | rev)"
+    FILEEXTENSION=""
     # Find file that odex relates to
     for EXTENSION in "apk" "jar"; do
         if [[ -f "$FILEDIR/$FILE.$EXTENSION" ]]; then
@@ -1185,7 +1194,7 @@ DEBLOAT() {
     else
         local LINE=""
         while [[ -z "$LINE" ]]; do
-            PRINT_BANNER
+            PRINT_BANNER_NEUTRAL
             echo "Before you begin debloating you should specify which cleaning list you want to use"
             echo
             echo "Currently available cleaning lists:"
@@ -1198,6 +1207,7 @@ DEBLOAT() {
             echo "Type any of detected lists above or 'x' to abort"
             read -p "Your list: " LIST
             PRINT_LINE
+
             if [[ "$LIST" = "x" ]]; then
                 return
             fi
@@ -1221,13 +1231,13 @@ BUSYBOX() {
     if [[ ! -f "$ACTIVE_PROJECT/system/xbin/busybox" ]]; then
         PRINT_BANNER
         echo "Busybox is a core provider for many standard GNU/Linux utilities"
-        echo "Here you can specify which busybox you want to add"
-        echo "Stericson's busybox is proven to be stable and work well on stock ROMs with no busybox"
-        echo "On the other hand, CyanogenMod's busybox is more actively developed"
+        echo "Here you can specify which Busybox you want to add"
+        echo "Stericson's busybox is proven to be stable and work well on stock ROMs with no Busybox"
+        echo "On the other hand, CyanogenMod's Busybox is more actively developed"
         echo
         echo "Please note that:"
-        echo "* CyanogenMod's busybox doesn't work on x86 architecture. If you're cooking ROM for such device, stick with stericson's"
-        echo "* CyanogenMod's busybox requires your device to be NEON-capable, typically CortexA9 and newer devices on armv7l"
+        echo "* CyanogenMod's Busybox doesn't work on x86 architecture. If you're cooking ROM for such device, stick with stericson's"
+        echo "* CyanogenMod's Busybox requires your device to be NEON-capable, typically CortexA9 and newer devices on armv7l"
         echo
         echo "If you don't know what to choose here, I strongly suggest to stick with stericson"
         PRESS_ENTER
@@ -1545,6 +1555,21 @@ KERNEL_OPTS() {
 #                          #
 ############################
 
+# Print help
+PRINT_HELP() {
+    cat >&2 <<EOF
+andyh4x0r - A trusty, and helpful tool to customize & create Android ROMs.
+
+Üsage: andyh4x0r [-h/--help] [-nu/--no-updates/--now]
+    -h/--help     -     Show this help screen, then exit.
+    -nu/--no-updates/--now  -  Skip auto-updates (to allow faster debugging & testing)
+
+Originally developed by: 'JustArchi'
+Current developer: JohnDaH4x0r
+Source code (forked) @ https://github.com/johndah4x0r/AndyH4x0r
+EOF
+}
+
 PRINT_BANNER
 echo "Please wait..."
 
@@ -1577,8 +1602,14 @@ esac
 # Set common tools
 ZIPALIGN="./$TOOLSDIR/zipalign/$HOSTARCH/zipalign"
 
-# Navigate to our folder, even if user didn't execute it from the root dir
-cd "$(dirname "$0")"
+# Warn user if not run from root directory
+if [ "$PWD" != "$(dirname "$0")" ]; then
+    echo "WARNING: AndyH4x0r wasn't executed from real parent directory!"
+    echo "It might have some consequences!"
+    echo
+    echo "Changing directory..."
+    cd "$(dirname "$0")"
+fi
 
 # Check if symlink support is present
 if [[ "$(ln -s T1 T2 >/dev/null 2>&1; echo $?)" -ne 0 ]]; then
@@ -1600,7 +1631,17 @@ chmod -R 755 tools
 # Parse args
 for ARG in "$@"; do
     case "$ARG" in
-        "t") AUTOUPDATE="0"; SET_OLDPROJECT ;; # Doesn't check for updates and automatically loads old project, for me to allow faster debugging and testing :)
+        "-h" | "--help")
+            PRINT_HELP
+            ;;
+        "-nu" | "--no-updates" | "--now")
+            AUTOUPDATE="0"; SET_OLDPROJECT
+            ;;
+        -* | --*)
+            PRINT_HELP
+            echo "Argument not understood: $ARG" >&2
+            exit 1
+            ;;
     esac
 done
 
@@ -1638,7 +1679,7 @@ while :; do
             if [[ "$ALLFINE" -eq 1 ]]; then
                 BUILD
             else
-                echo "ERROR: Can't build ROM in actual status, please check warings above and correct them!"
+                echo "ERROR: Can't build ROM in current status, please read the warnings [ms] and fix them!"
                 PRESS_ENTER
             fi
             ;;

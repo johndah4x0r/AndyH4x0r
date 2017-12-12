@@ -2,4 +2,8 @@ base_drops/*
 PROJECT_*
 OUTPUT
 TEMP
-
+apkbloat.sh
+sort_apks.sh
+update-binary
+apkbloat.sh-*.log
+apks.txt
