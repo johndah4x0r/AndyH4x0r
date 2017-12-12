@@ -52,18 +52,13 @@ UPDATER_SCRIPT_KERNEL="updater-script-90_KERNEL"
 UPDATER_SCRIPT_MODEM="updater-script-91_MODEM"
 UPDATER_SCRIPT_TAIL="updater-script-99_TAIL" # Unused
 
-#  _____                 _   _
-# |  ___|   _ _ __   ___| |_(_) ___  _ __  ___
-# | |_ | | | | '_ \ / __| __| |/ _ \| '_ \/ __|
-# |  _|| |_| | | | | (__| |_| | (_) | | | \__ \
-# |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
-#
+## Functions ##
 
 ### CORE ###
 
 # Waits for user action
 PRESS_ENTER() {
-    read -p "Press [Enter] key to continue..."
+    read -p "Press <Enter> to continue..." >/dev/null
 }
 
 PRINT_LINE() {
@@ -75,7 +70,7 @@ ROOT_EXECUTE() {
     if [[ "$CUSER" = "root" ]]; then
         $@ # Yes, we must break on spaces in this case
     else
-        echo "Root access is required! $*"
+        echo "Root access is required! $@"
         if [[ ! -z "$(which sudo)" ]]; then
             sudo $@ # Yes, we must break on spaces in this case
         else
@@ -1183,6 +1178,9 @@ ROOT() {
         UPDATER_SCRIPT_DEL "files/root/updater-scripts"
     fi
     BUILD_UPDATER_SCRIPT
+
+    echo "Finished rooting!"
+    PRESS_ENTER
 }
 
 # Debloats or bloats ROM
@@ -1603,7 +1601,7 @@ esac
 ZIPALIGN="./$TOOLSDIR/zipalign/$HOSTARCH/zipalign"
 
 # Warn user if not run from root directory
-if [ "$PWD" != "$(dirname "$0")" ]; then
+if [ "$PWD" != "$(dirname "$0" | xargs realpath)" ]; then
     echo "WARNING: AndyH4x0r wasn't executed from real parent directory!"
     echo "It might have some consequences!"
     echo
