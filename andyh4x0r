@@ -32,7 +32,6 @@ GITHUBLINK="https://github.com/johndah4x0r/AndyH4x0r.git"
 AUTOUPDATE="1" # Defines if we should turn on auto updates, if available
 GITHUBBRANCH="master"
 NEEDEDGIT="1.8"
-
 ACTIVE_PROJECT=""
 ARCH="unknown"
 CUSER="$(whoami)"
@@ -67,14 +66,15 @@ PRINT_LINE() {
 
 # Executes commands given in arguments as root
 ROOT_EXECUTE() {
+    # NOTE: Some sections have to brake spaces
     if [[ "$CUSER" = "root" ]]; then
-        $@ # Yes, we must break on spaces in this case
+        $@  # BRAKE SPACES
     else
         echo "Root access is required! $@"
         if [[ ! -z "$(which sudo)" ]]; then
-            sudo $@ # Yes, we must break on spaces in this case
+            sudo $@ # BRAKE SPACES
         else
-            su -c $@ # Yes, we must break on spaces in this case
+            su -c $@    # BRAKE SPACES
         fi
     fi
 }
@@ -149,8 +149,8 @@ BLACKLIST_CLEAN() {
 # Restores previously cleaned files/folders
 BLACKLIST_CLEAN_RESTORE() {
     # $1 - target folder
-    cp -R "$ACTIVE_PROJECT/$1"/* "$ACTIVE_PROJECT"
-    rm -rf "$ACTIVE_PROJECT/$1"
+    cp -R "${ACTIVE_PROJECT}/$1"/* "$ACTIVE_PROJECT"
+    rm -rf "${ACTIVE_PROJECT}/$1"
 }
 
 # Deletes files/folders based on given blacklist
@@ -274,7 +274,7 @@ DEL_PROJECTS() {
 SET_NEWPROJECT() {
     local PROJECT
     PRINT_BANNER_NEUTRAL
-    echo "Before you begin, you must specify tyep project type you want to create"
+    echo "Before you begin, you must specify the project you want to create"
     echo
     echo "b - Create a Bare Bones project"
     echo "i - Create a ZIP-flashable ROM from stock partition image(s)"
@@ -294,7 +294,7 @@ SET_NEWPROJECT() {
     case "$CHOICE" in
         i|I) NEWPROJECT_STOCK ;;
         z|Z) NEWPROJECT_ZIP ;;
-        *) NEWPROJECT_BARE ;;
+        b|B) NEWPROJECT_BARE ;;
     esac
 }
 
@@ -332,7 +332,7 @@ SET_OLDPROJECT() {
     echo "=-=-=-=-=-=-=-=-="
     echo "Found total of $COUNT projects"
     if [[ "$COUNT" -eq 1 ]]; then
-        ACTIVE_PROJECT="$(basename "$LASTFOUND")" # If we have only one project, there's nothing to choose from, so we can save some precious seconds
+        ACTIVE_PROJECT="$(basename "$LASTFOUND")" # If we have only one project, then we can skip the menu (save some time)
         return 0
     fi
     echo "Write a name of any from the projects detected above or 'x' to go back"
@@ -439,7 +439,7 @@ NEWPROJECT_STOCK() {
         if [[ -f "$SYSTEMIMG" && -f "$BOOTIMG" ]] && ([[ -z "$CACHEIMG" || -f "$CACHEIMG" ]]) && ([[ -z "$MODEMIMG" || -f "$MODEMIMG" ]]); then
             READY=1
         else
-            echo "Some of your files do not exist"
+            echo "Some of your files don't exist"
             PRESS_ENTER
         fi
     done
@@ -532,7 +532,8 @@ NEWPROJECT_ZIP() {
 
 # Sets kernel
 SET_KERNEL() {
-    if [[ -f "$ACTIVE_PROJECT/boot.img" ]] && ([[ "$(grep -qi "boot.img" "$ACTIVE_PROJECT/$META_INF/updater-script"; echo $?)" -ne 0 || "$(grep -qi "/tmp/invalid_kernel_path" "$ACTIVE_PROJECT/$META_INF/updater-script"; echo $?)" -eq 0 ]]); then
+    if [[ -f "$ACTIVE_PROJECT/boot.img" ]] && ([[ "$(grep -qi "boot.img" "$ACTIVE_PROJECT/$META_INF/updater-script"; echo $?)" \
+    -ne 0 || "$(grep -qi "/tmp/invalid_kernel_path" "$ACTIVE_PROJECT/$META_INF/updater-script"; echo $?)" -eq 0 ]]); then
         PRINT_BANNER_NEUTRAL
         echo "WARNING! Kernel has been found but there's no path in the current updater-script"
         echo "This is typical when you're converting stock image partition to ZIP-flashable ROM"
@@ -1578,7 +1579,7 @@ unset CROSS_COMPILE # We're not cross-compiling anything here and it may cause p
 if [[ "$(which "${TOOLS[@]}" >/dev/null; echo $?)" -ne 0 ]]; then
     MISSINGTOOLS=""
     for TOOL in "${TOOLS[@]}"; do
-        if [[ -z "$(which $TOOL)" ]]; then
+        if [[ -z "$(which "$TOOL")" ]]; then
             MISSINGTOOLS+=" $TOOL"
         fi
     done
