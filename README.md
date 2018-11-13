@@ -1,6 +1,5 @@
-# AndyH4x0r
-This set of scripts & tools will help you modify, and even
-create your own custom ROM.
+# SimpleKitchen
+## Forked from JustArchi's ArchiKitchen
+This tool is composed of scripts intended to modify ROMs.
+Can also be used to create custom ROMs.
 
-This project is just a response to ending the life of "ArchiKitchen"
-(C'mon! The device I want my ROM to work on is x86!)
