@@ -17,6 +17,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+#
+# Credits goes to:
+# - Original author: Tukasz "JustArchi" Domeradzki
 
 # Set sensitivity to errors
 set +e
@@ -56,11 +59,17 @@ UPDATER_SCRIPT_TAIL="updater-script-99_TAIL" # Unused
 
 # Waits for user action
 PRESS_ENTER() {
-    read -p "Press <Enter> to continue..." >/dev/null
+    read -rp "Press <Enter> to continue..." >/dev/null
 }
 
 PRINT_LINE() {
-    echo "--------------------------------------------------------------------------------"
+    SIZE="$(stty size | cut -d ' ' -f 2)"
+    SIZE="$((SIZE - 1))"
+
+    for i in $(seq $SIZE); do
+        echo -n '-'
+    done
+    echo ''
 }
 
 # Executes commands given in arguments as root
@@ -69,7 +78,8 @@ ROOT_EXECUTE() {
     if [[ "$CUSER" = "root" ]]; then
         $@  # BRAKE SPACES
     else
-        echo "Root access is required! $@"
+        echo "Root access is required!"
+        echo "Submit password when asked for it..."
         if [[ ! -z "$(which sudo)" ]]; then
             sudo $@ # BRAKE SPACES
         else
@@ -111,16 +121,16 @@ GREP_DELETE_WORD() {
 }
 
 # Performs cleaning of files/folders based on given blacklist
-BLACKLIST_CLEAN() {
+BLACKLIST_CLEAN() (
     # $1 - target cleaning list
     # $2 - target folder
     mkdir -p "$ACTIVE_PROJECT/$2"
     if [[ -f "files/$1/clean.txt" ]]; then
-        while read line; do
+        while read -r line; do
             if [[ -z "$line" || "$line" = \#* ]]; then
                 continue
             fi
-            local TARGETS="$(echo "$line" | awk '{print $1}' | cut -d '"' -f2)#
+            TARGETS="$(echo "$line" | awk '{print $1}' | cut -d '"' -f2)"
             case "$TARGETS" in
                 /*) ;;
                 *.apk)
@@ -134,16 +144,18 @@ BLACKLIST_CLEAN() {
                 *.so) TARGETS="/system/lib/$TARGETS" ;;
             esac
             for TARGET in $TARGETS; do
-                local TARGETDIR="$ACTIVE_PROJECT/$2$(dirname "$TARGET")"
+                TARGETDIR="$ACTIVE_PROJECT/$2$(dirname "$TARGET")"
                 mkdir -p "$TARGETDIR"
                 if [[ -e "$ACTIVE_PROJECT"$TARGET ]]; then
                     echo "Cleaning $(basename "$ACTIVE_PROJECT$TARGET")"
                 fi
-                mv -f "$ACTIVE_PROJECT"$TARGET "$TARGETDIR" >/dev/null 2>&1 # Yes, we must detect wildcards here
+                ACTIVE_TARGET="$ACTIVE_PROJECT"
+                ACTIVE_TARGET+="$TARGET"
+                mv -f "$ACTIVE_TARGET" "$TARGETDIR" >/dev/null 2>&1 # Yes, we must detect wildcards here
             done
         done < "files/$1/clean.txt"
     fi
-}
+)
 
 # Restores previously cleaned files/folders
 BLACKLIST_CLEAN_RESTORE() {
@@ -153,10 +165,10 @@ BLACKLIST_CLEAN_RESTORE() {
 }
 
 # Deletes files/folders based on given blacklist
-BLACKLIST_REMOVE() {
+BLACKLIST_REMOVE() (
     # $1 - target remove list
     if [[ -f "files/$1/remove.txt" ]]; then
-        while read line; do
+        while read -r line; do
             if [[ -z "$line" || "$line" = \#* ]]; then
                 continue
             fi
@@ -175,14 +187,16 @@ BLACKLIST_REMOVE() {
                 *.so) TARGETS="/system/lib/$TARGETS" ;;
             esac
             for TARGET in $TARGETS; do
-                if [[ -e "$ACTIVE_PROJECT"$TARGET ]]; then
-                    echo "Removing $(basename "$ACTIVE_PROJECT$TARGET")"
+                ACTIVE_TARGET="$ACTIVE_PROJECT"
+                ACTIVE_TARGET+="$TARGET"
+                if [[ -e "$ACTIVE_TARGET" ]]; then
+                    echo "Removing $(basename "$ACTIVE_TARGET")"
                 fi
-                rm -rf "$ACTIVE_PROJECT"$TARGET >/dev/null 2>&1 # Yes, we must detect wildcards here
+                rm -rf "$ACTIVE_TARGET" >/dev/null 2>&1 # Yes, we must detect wildcards here
             done
         done < "files/$1/remove.txt"
     fi
-}
+)
 
 # Gives user choice in choosing one thing from a few
 PICK_ONE() {
@@ -192,13 +206,13 @@ PICK_ONE() {
         PRINT_BANNER
         echo "Currently available for selection:"
         PRINT_LINE
-        find "$1" -mindepth 1 -maxdepth 1 -type d | sort | while read line; do
+        find "$1" -mindepth 1 -maxdepth 1 -type d | sort | while read -r line; do
             basename "$line"
         done
         PRINT_LINE
         echo
         echo "Type any of above or 'x' to abort"
-        read -p "Your choice: " PICKCHOICE
+        read -rp "Your choice: " PICKCHOICE
         if [[ "$PICKCHOICE" = "x" ]]; then
             PICKCHOICE=""
             return
@@ -243,20 +257,20 @@ DEL_PROJECT() {
 # Deletes chosen project.
 DEL_PROJECTS() {
     local PROJECT
-    while :; do
+    while true; do
         PRINT_BANNER_NEUTRAL
-        echo "Which project do you wanna delete?"
+        echo "Which project do you want to delete?"
         echo "================"
         find . -type d -name "PROJECT_*"
         echo "================"
-        read -e -p "Which project? [Press <Enter> to abort]: " PROJECT
+        read -r -e -p "Which project? [Press <Enter> to abort]: " PROJECT
         if [ ! "$PROJECT" ]; then
             break
         fi
 
         if [ ! -d "$PROJECT" ]; then
             echo "Cannot find project: $PROJECT" >&2
-            read -p "Press <Enter> to continue... " junk
+            read -rp "Press <Enter> to continue... " junk
             continue
         fi
 
@@ -266,9 +280,8 @@ DEL_PROJECTS() {
         sleep 1
         continue
     done
-
-
 }
+
 # Creates new project
 SET_NEWPROJECT() {
     local PROJECT
@@ -280,11 +293,11 @@ SET_NEWPROJECT() {
     echo "z - Create a ZIP-flashable ROM from other ZIP-flashable ROM"
     echo
     echo "x - Abort!"
-    read -p "Project type [B/i/z]: " CHOICE
-    if [ "$CHOICE" = "x" -o "$CHOICE" = "X" ]; then
+    read -rp "Project type [B/i/z]: " CHOICE
+    if [ "$CHOICE" = "x" ] || [ "$CHOICE" = "X" ]; then
         return
     fi
-    read -p "Project name (OK to leave empty): PROJECT_" NAME
+    read -rp "Project name (OK to leave empty): PROJECT_" NAME
 
     if [ ! "${NAME}" ]; then
         NAME="$(date '+%m%d%y_%H%M%S')"
@@ -307,7 +320,7 @@ SET_PROJECT() {
     echo "e - Use existing project"
     echo "d - Delete existing project"
     echo "x - Exit"
-    read -p "Your choice: " CHOICE
+    read -rp "Your choice: " CHOICE
     case "$CHOICE" in
         n|N) SET_NEWPROJECT ;;
         e|E) SET_OLDPROJECT ;;
@@ -323,7 +336,7 @@ SET_OLDPROJECT() {
     local LASTFOUND=""
     echo "Searching for projects you've created in the past..."
     echo "=-=-=-=-=-=-=-=-="
-    while read line; do
+    while read -r line; do
         ((COUNT++))
         LASTFOUND="$line"
         basename "$LASTFOUND"
@@ -331,11 +344,12 @@ SET_OLDPROJECT() {
     echo "=-=-=-=-=-=-=-=-="
     echo "Found total of $COUNT projects"
     if [[ "$COUNT" -eq 1 ]]; then
-        ACTIVE_PROJECT="$(basename "$LASTFOUND")" # If we have only one project, then we can skip the menu (save some time)
+        # If we have only one project, then we can skip the menu (save some time)
+        ACTIVE_PROJECT="$(basename "$LASTFOUND")"
         return 0
     fi
-    echo "Write a name of any from the projects detected above or 'x' to go back"
-    read -p "Your selected project: " CHOICE
+    echo
+    read -rp "Your selected project ['x' to go back]: " CHOICE
     case "$CHOICE" in
         x|X) return ;;
         *)
@@ -363,15 +377,16 @@ HANDLE_IMG() {
         echo "Type: Sparse image file"
         if [[ ! -x "$TEMPDIR/simg2img" ]]; then
             echo "Compiling simg2img..."
-            gcc -O2 "$TOOLSDIR/simg2img/sparse_crc32.c" "$TOOLSDIR/simg2img/simg2img.c" -o "$TEMPDIR/simg2img"
+            gcc -Os -j32 "$TOOLSDIR/simg2img/sparse_crc32.c" \
+            "$TOOLSDIR/simg2img/simg2img.c" -o "$TEMPDIR/simg2img"
         fi
         echo "Converting sparse image to image..."
-        ./$TEMPDIR/simg2img "$IMGFILE" "${DESTFILE}"
+        ./"$TEMPDIR"/simg2img "$IMGFILE" "${DESTFILE}"
         if [[ $? -ne 0 ]]; then
             echo "Conversion failed" >&2
             return 1
         else
-            echo "Conversion succeed!"
+            echo "Conversion success!"
             return 0
         fi
     else
@@ -409,7 +424,7 @@ NEWPROJECT_STOCK() {
         echo "=-=-=-=-=-=-=-=-="
         find base_drops/ -type f -iname "*system*"
         echo "=-=-=-=-=-=-=-=-="
-        read -e -p "system.img: " SYSTEMIMG
+        read -r -e -p "system.img: " SYSTEMIMG
 
         echo
         echo "Please fill a path for your boot.img file"
@@ -417,7 +432,7 @@ NEWPROJECT_STOCK() {
         echo "=-=-=-=-=-=-=-=-="
         find base_drops/ -type f -iname "*boot*"
         echo "=-=-=-=-=-=-=-=-="
-        read -e -p "boot.img: " BOOTIMG
+        read -r -e -p "boot.img: " BOOTIMG
 
         echo
         echo "Please fill a path for your cache.img file. Leave empty if you don't have one"
@@ -425,7 +440,7 @@ NEWPROJECT_STOCK() {
         echo "=-=-=-=-=-=-=-=-="
         find base_drops/ -type f -iname "*cache*"
         echo "=-=-=-=-=-=-=-=-="
-        read -e -p "cache.img: " CACHEIMG
+        read -r -e -p "cache.img: " CACHEIMG
 
         echo
         echo "Please fill a path for your modem.bin file. Leave empty if you don't have one"
@@ -433,9 +448,11 @@ NEWPROJECT_STOCK() {
         echo "=-=-=-=-=-=-=-=-="
         find base_drops/ -type f -iname "*modem*"
         echo "=-=-=-=-=-=-=-=-="
-        read -e -p "modem.bin: " MODEMIMG
+        read -r -e -p "modem.bin: " MODEMIMG
 
-        if [[ -f "$SYSTEMIMG" && -f "$BOOTIMG" ]] && ([[ -z "$CACHEIMG" || -f "$CACHEIMG" ]]) && ([[ -z "$MODEMIMG" || -f "$MODEMIMG" ]]); then
+        if [[ -f "$SYSTEMIMG" && -f "$BOOTIMG" ]] && \
+        ([[ -z "$CACHEIMG" || -f "$CACHEIMG" ]]) && \
+        ([[ -z "$MODEMIMG" || -f "$MODEMIMG" ]]); then
             READY=1
         else
             echo "Some of your files don't exist"
@@ -457,26 +474,26 @@ NEWPROJECT_STOCK() {
         DEL_PROJECT
         return 1
     fi
-    TRY_MOUNT "$ACTIVE_PROJECT/system.img" "/tmp/H4X0RLOOP" || (DEL_PROJECT; return 1)
+    TRY_MOUNT "$ACTIVE_PROJECT/system.img" "/tmp/kitch.loop" || (DEL_PROJECT; return 1)
     echo "Extracting everything from mounted system partition..."
-    ROOT_EXECUTE "cp -R /tmp/H4X0RLOOP/* $ACTIVE_PROJECT/system/"
-    ROOT_EXECUTE "umount /tmp/H4X0RLOOP"
+    ROOT_EXECUTE "cp -R /tmp/kitch.loop/* $ACTIVE_PROJECT/system/"
+    ROOT_EXECUTE "umount /tmp/kitch.loop"
     rm -f "$ACTIVE_PROJECT/system.img"
 
     # CACHE
     if [[ ! -z "$CACHEIMG" ]]; then
         cp "$CACHEIMG" "$ACTIVE_PROJECT/cache.img"
-        TRY_MOUNT "$ACTIVE_PROJECT/cache.img" "/tmp/H4X0RLOOP"
+        TRY_MOUNT "$ACTIVE_PROJECT/cache.img" "/tmp/kitch.loop"
         if [[ -f "/tmp/H4X0RLOOP/recovery/sec_csc.zip" ]]; then
             echo "Found common Samsung sec_csc.zip file, extracting it and merging with the project"
             ROOT_EXECUTE "unzip -q /tmp/H4X0RLOOP/recovery/sec_csc.zip -d $ACTIVE_PROJECT/"
         else
             echo "Could not detect any known cache format"
             echo "This is typical when cache doesn't contain any valuable files, such as sec_csc.zip in case of Samsung ROMs"
-            echo "Extract everything you need from /tmp/H4X0RLOOP before going to the next step"
+            echo "Extract everything you need from /tmp/kitch.loop/ before going to the next step"
             PRESS_ENTER
         fi
-        ROOT_EXECUTE "umount /tmp/H4X0RLOOP"
+        ROOT_EXECUTE "umount /tmp/kitch.loop"
         rm -f "$ACTIVE_PROJECT/cache.img"
     fi
 
@@ -490,7 +507,7 @@ NEWPROJECT_STOCK() {
     ROOT_EXECUTE "chmod -R 755 $ACTIVE_PROJECT"
 
     # Generate required files
-    rm -rf "$ACTIVE_PROJECT/META-INF" # In case we have any bloat from sec_csc.zip or similar
+    rm -rf "$ACTIVE_PROJECT/META-INF"   # In case we have any bloat from sec_csc.zip or similar
     BUILD_META_INF
     BUILD_UPDATER_SCRIPT
     PRESS_ENTER
@@ -501,10 +518,10 @@ NEWPROJECT_STOCK() {
 # Creates a new zip-based project
 NEWPROJECT_ZIP() {
     PRINT_BANNER_NEUTRAL
-    read -e -p "Location of ZIP-file: " SRC_ZIP
+    read -r -e -p "Location of ZIP-file: " SRC_ZIP
     if [ ! -f "$(realpath "$SRC_ZIP" 2>/dev/null)" ]; then
         echo "Cannot find ZIP file: $(basename "$SRC_ZIP")" >&2
-        read -p "Press [Enter] to continue..." junk
+        read -rp "Press [Enter] to continue..." junk
         return 1
     fi
     echo "Creating barebones project... [TEMPLATE]"
@@ -520,7 +537,7 @@ NEWPROJECT_ZIP() {
 
     echo "Generating required files..."
     # Generate required files
-    rm -rf "$ACTIVE_PROJECT/META-INF" # In case we have any bloat from sec_csc.zip or similar
+    rm -rf "$ACTIVE_PROJECT/META-INF"   # In case we have any bloat from sec_csc.zip or similar
     BUILD_META_INF
     BUILD_UPDATER_SCRIPT
     PRESS_ENTER
@@ -556,7 +573,7 @@ SET_KERNEL() {
             echo "Example for E960/mako (LG Nexus 4): /dev/block/platform/msm_sdcc.1/by-name/boot"
             echo
             echo "MAKE SURE THAT THE PATH IS CORRECT, OVERWRITING WRONG PATHS MAY LEAD TO SOFT AND HARD BRICKS"
-            read -p "Kernel path for your device: " KERNELPATH
+            read -rp "Kernel path for your device: " KERNELPATH
         fi
         SED_CHANGE_WORD "/tmp/invalid_kernel_path" "$KERNELPATH" "$ACTIVE_PROJECT/$META_INF/$UPDATER_SCRIPT_KERNEL" "^"
         echo
@@ -573,7 +590,9 @@ SET_KERNEL() {
 
 # Sets modem
 SET_MODEM() {
-    if [[ -f "$ACTIVE_PROJECT/modem.bin" ]] && ([[ "$(grep -qi "modem.bin" "$ACTIVE_PROJECT/$META_INF/updater-script"; echo $?)" -ne 0 || "$(grep -qi "/tmp/invalid_modem_path" "$ACTIVE_PROJECT/$META_INF/updater-script"; echo $?)" -eq 0 ]]); then
+    if [[ -f "$ACTIVE_PROJECT/modem.bin" ]] && \
+    ([[ "$(grep -qi "modem.bin" "$ACTIVE_PROJECT/$META_INF/updater-script"; echo $?)" -ne 0 || \
+    "$(grep -qi "/tmp/invalid_modem_path" "$ACTIVE_PROJECT/$META_INF/updater-script"; echo $?)" -eq 0 ]]); then
         PRINT_BANNER_NEUTRAL
         echo "WARNING! Modem has been found but there's no path in the current updater-script"
         echo "This is typical when you're converting stock image partition to ZIP-flashable ROM"
@@ -587,20 +606,21 @@ SET_MODEM() {
         echo "Detected ROM model: $MODEL"
         if [[ -f "product/$MODEL/MODEM" ]]; then
             MODEMPATH="$(cat "product/$MODEL/MODEM")"
-            echo "Based on detected ROM model and our little database, your modem path should be: $MODEMPATH"
+            echo "Based on detected ROM model and our database, your modem path should be: $MODEMPATH"
         else
-            echo "This model does not yet exist in our database. Please fill your modem path manually"
-            echo "Please notice that some models are not supporting flashing a modem via recovery, in such case you should use generic 'NULL' word in this question"
+            echo "This model doesn't exist in our database. Please fill your modem path manually"
+            echo "Please note that some models are don't flashing modem via recovery, in such case you should use"
+            echo "generic 'NULL' word in this question"
             echo
             echo "Example for I9300/m0 (Samsung Galaxy S3): /dev/block/mmcblk0p7"
             echo "Example for N9005/hlte (Samsung Note 3): NULL"
             echo "Example for E960/mako (LG Nexus 4): /dev/block/platform/msm_sdcc.1/by-name/modem"
             echo
             echo "MAKE SURE THAT THE PATH IS CORRECT, OVERWRITING WRONG PATHS MAY LEAD TO SOFT AND HARD BRICKS"
-            read -p "Modem path for your device: " MODEMPATH
+            read -rp "Modem path for your device: " MODEMPATH
         fi
         if [[ "$MODEMPATH" = "NULL" ]]; then
-            echo "It looks like your device does not support flashing a modem through recovery, your modem path is NULL"
+            echo "Your device doesn't support flashing a modem through recovery, your modem path is 'NULL'"
             rm -f "$ACTIVE_PROJECT/modem.bin" "$ACTIVE_PROJECT/$META_INF/$UPDATER_SCRIPT_MODEM"
         else
             SED_CHANGE_WORD "/tmp/invalid_modem_path" "$MODEMPATH" "$ACTIVE_PROJECT/$META_INF/$UPDATER_SCRIPT_MODEM" "^"
@@ -617,7 +637,7 @@ SET_MODEM() {
     fi
 }
 
-# Creates generic META-INF
+# Generate generic META-INF
 BUILD_META_INF() {
     mkdir -p "$ACTIVE_PROJECT/$META_INF"
     cp product/_generic/update-binary "$ACTIVE_PROJECT/$META_INF/update-binary"
@@ -651,7 +671,7 @@ UPDATER_SCRIPT_DEL() {
         # Unfortunately I failed using sed, so I'm out of better ideas :(
         FILE="$(basename "$UPDATER_SCRIPT")"
         echo -n "" > "$ACTIVE_PROJECT/$FILE"
-        while read line; do
+        while read -r line; do
             if [[ "$(grep -q "$line" "$UPDATER_SCRIPT"; echo $?)" -eq 1 ]]; then
                 echo "$line" >> "$ACTIVE_PROJECT/$FILE"
             fi
@@ -681,13 +701,13 @@ BUILD_UPDATER_SCRIPT() {
 FIX_PERMISSIONS() {
     echo "Right now you're using generic list of permissions based on multiple devices"
     echo "It's usually a good idea to remove invalid permissions, by invalid I mean permissions to non-existent files or folders"
-    read -p "Do you want to remove invalid permissions? [Y/n]: " CHOICE
+    read -rp "Do you want to remove invalid permissions? [Y/n]: " CHOICE
     case "$CHOICE" in
         n|N) ;;
         *)
             cp "$ACTIVE_PROJECT/$META_INF/$UPDATER_SCRIPT_PERMISSIONS" "$ACTIVE_PROJECT/updater-script-TEMP"
             rm -f "$ACTIVE_PROJECT/updater-script-TEMP-LIST"
-            while read perm; do
+            while read -r perm; do
                 perm="$(echo "$perm" | cut -d'"' -f2)"
                 if [[ -z "$perm" ]]; then
                     continue
@@ -716,14 +736,14 @@ FIX_PERMISSIONS() {
 FIX_SYMLINKS() {
     echo "Right now you're probably using generic list of symlinks based on multiple devices"
     echo "It's usually a good idea to remove invalid symlinks, by invalid I mean symlinks to non-existent files or folders"
-    read -p "Do you want to remove invalid symlinks? [Y/n]: " CHOICE
+    read -rp "Do you want to remove invalid symlinks? [Y/n]: " CHOICE
     case "$CHOICE" in
         n|N) ;;
         *)
             cp "$ACTIVE_PROJECT/$META_INF/$UPDATER_SCRIPT_SYMLINKS" "$ACTIVE_PROJECT/updater-script-TEMP"
             rm -f "$ACTIVE_PROJECT/updater-script-TEMP-LIST"
             local SYMLINKDIR=""
-            while read SYMLINK; do
+            while read -r SYMLINK; do
                 SYMLINKDIR="$(dirname "$(echo "$SYMLINK" | cut -d'"' -f4)")"
                 SYMLINK="$(echo "$SYMLINK" | cut -d'"' -f2)"
                 # If symlink is empty, continue
@@ -756,7 +776,7 @@ FIX_SYMLINKS() {
 
     echo "We can also add local symlinks from your project, these are available only if your project is based on stock image and contains symlinks inside"
     echo "It's usually a very good idea to add local symlinks, if they're available, in worst case we won't be able to find anything"
-    read -p "Do you want to include local symlinks? [Y/n]: " CHOICE
+    read -rp "Do you want to include local symlinks? [Y/n]: " CHOICE
     case "$CHOICE" in
         n|N) ;;
         *)
@@ -764,7 +784,7 @@ FIX_SYMLINKS() {
             local REALPATH=""
             rm -f "$ACTIVE_PROJECT/updater-script-TEMP-LIST" "$ACTIVE_PROJECT/updater-script-TEMP-FOUNDSYMLINKS"
             local MAGIC="0"
-            find "$ACTIVE_PROJECT/" -type l | sort | while read SYMLINK; do
+            find "$ACTIVE_PROJECT/" -type l | sort | while read -r SYMLINK; do
                 TARGET="$(readlink "$SYMLINK")"
                 if [[ "$MAGIC" -eq 0 ]]; then
                     # Find proper path
@@ -791,7 +811,7 @@ FIX_SYMLINKS() {
                 echo "We managed to find local symlinks. Therefore, if the list is complete we don't need to include all generic symlinks, but just found ones"
                 echo "This will result in exact 1:1 copy of all symlinks which are available in system.img, without adding extra ones"
                 echo "It's usually a very good idea to keep only found symlinks instead of the whole list, but you may also want to append them to the generic databse instead of making 1:1 copy"
-                read -p "Do you want to include only symlinks that were found? [Y/n]: " CHOICE
+                read -rp "Do you want to include only symlinks that were found? [Y/n]: " CHOICE
                 case "$CHOICE" in
                     n|N) echo "OK, your symlinks have been appended to the generic list"; cat "$ACTIVE_PROJECT/updater-script-TEMP-FOUNDSYMLINKS" >> "$ACTIVE_PROJECT/$META_INF/$UPDATER_SCRIPT_SYMLINKS"; rm -f "$ACTIVE_PROJECT/updater-script-TEMP-FOUNDSYMLINKS" ;;
                     *) echo "OK, updater-script now uses only symlinks that were found"; mv -f "$ACTIVE_PROJECT/updater-script-TEMP-FOUNDSYMLINKS" "$ACTIVE_PROJECT/$META_INF/$UPDATER_SCRIPT_SYMLINKS"
@@ -820,7 +840,7 @@ KERNEL_EXTRACT() {
             cd "$TOOLSDIR/mkbootimg"
             make
             if [[ ! -x mkbootimg || ! -x unpackbootimg ]]; then
-                echo "ERROR! Something went wrong with compilation of mkbootimg!"
+                echo "ERROR! Something went wrong when trying to compile mkbootimg..."
                 PRESS_ENTER
                 return 1
             fi
@@ -871,7 +891,9 @@ KERNEL_EXTRACT() {
                         CBIN="mtk"
                         DBIN="mtk"
                     else
-                        echo "ERROR: Could not find any valid method to unpack this kernel. Either it's not valid, or the h4x0r can't find out how to deal with it"
+                        echo "ERROR: Could not find any valid method to unpack this kernel. Either it's not valid,"
+                        echo "or the kitchen doesn't know how to deal with it."
+                        echo ""
                         KERNEL_ABORT
                         PRESS_ENTER
                         return 1
@@ -993,16 +1015,17 @@ BUILD() {
         FIX_PERMISSIONS
         FIX_SYMLINKS
         BUILD_UPDATER_SCRIPT
-        SED_CHANGE_WORD "313371337" "$(find "$ACTIVE_PROJECT/system" -type f | wc -l)" "$ACTIVE_PROJECT/$META_INF/updater-script" # This will change our temporary int in progress to a number of all files in system directory, making progress bar truly reliable
+        SED_CHANGE_WORD "313371337" "$(find "$ACTIVE_PROJECT/system" -type f | wc -l)" \
+        "$ACTIVE_PROJECT/$META_INF/updater-script"
         PRESS_ENTER
         echo "Sometimes kitchen may produce an incorrect updater-script file, that's why you're asked to review updater-script and eventually fix it if needed BEFORE building ROM"
         echo "Updater-script is based on so-called 'segments' available in the same directory - $META_INF"
         echo "Are you ready?"
         PRESS_ENTER
-        echo "-=-= UPDATER-SCRIPT START =-=-"
+        echo "=-= UPDATER-SCRIPT START =-="
         cat "$ACTIVE_PROJECT/$META_INF/updater-script"
-        echo "-=-= UPDATER-SCRIPT EOF =-=-"
-        read -p "Are you REALLY sure that above updater-script is correct? ESPECIALLY block-based paths? [Y/n]: " CHOICE
+        echo "=-= UPDATER-SCRIPT EOF =-="
+        read -rp "Are you REALLY sure that above updater-script is correct? ESPECIALLY block-based paths? [Y/n]: " CHOICE
         case "$CHOICE" in
             n|N)
                 echo "OK, correct your updater-script and/or it's segments and come back when you're finished"
@@ -1017,7 +1040,7 @@ BUILD() {
     echo "1 - Fastest (fastest type of compression, this is default suggested mode)"
     echo "9 - Best (slowest, maximum compression)"
     echo "You can also type any number between 0-9"
-    read -p "CHOICE: " CHOICE
+    read -rp "CHOICE: " CHOICE
     case "$CHOICE" in
         [0-9]) COMPLEVEL="$CHOICE"
     esac
@@ -1027,14 +1050,14 @@ BUILD() {
     mkdir -p OUTPUT
     mv -f "$ACTIVE_PROJECT/$ACTIVE_PROJECT.zip" "OUTPUT/$ACTIVE_PROJECT.zip"
     echo "Done, your ROM is available in OUTPUT/$ACTIVE_PROJECT.zip"
-    read -p "Rename it? [N/y]: " CHOICE
+    read -rp "Rename it? [N/y]: " CHOICE
     case "$CHOICE" in
         y|Y)
-            read -p "New name: " NAME
+            read -rp "New name: " NAME
             mv -f "OUTPUT/$ACTIVE_PROJECT.zip" "OUTPUT/$NAME"
     esac
     echo "All done, your ROM should be ready!"
-    echo "Thank you for using AndyH4x0r!"
+    echo "Thank you for using SimpleKitchen!"
     PRESS_ENTER
     exit 0
 }
@@ -1087,13 +1110,13 @@ DEODEX_FILE() {
 }
 
 # Deodexes everything
-DEODEX() {
-    local API="$(grep "ro.build.version.sdk" "$ACTIVE_PROJECT/system/build.prop" | cut -d'=' -f2)"
+DEODEX() (
+    API="$(grep "ro.build.version.sdk" "$ACTIVE_PROJECT/system/build.prop" | cut -d'=' -f2)"
     echo "Detected API level $API"
     echo "Usually you don't want to change this value"
-    read -p "Change it? [N/y]: " CHOICE
+    read -rp "Change it? [N/y]: " CHOICE
     case "$CHOICE" in
-        y|Y) read -p "Your selected API level: " API ;;
+        y|Y) read -rp "Your selected API level: " API ;;
     esac
     case "$API" in
         [0-9]*) ;;
@@ -1102,13 +1125,13 @@ DEODEX() {
             PRESS_ENTER
             return 1
     esac
-    find "$ACTIVE_PROJECT" -type f -iname "*.odex" | while read ODEX; do
+    find "$ACTIVE_PROJECT" -type f -iname "*.odex" | while read -r ODEX; do
         DEODEX_FILE "$ODEX"
     done
     echo "Deodexing finished"
     PRESS_ENTER
     return 0
-}
+)
 
 # Zipaligns single file
 ZIPALIGN_FILE() {
@@ -1120,12 +1143,12 @@ ZIPALIGN_FILE() {
 # Zipaligns everything
 ZIPALIGN() {
     if [[ "$FULLPERFORMANCE" -eq 1 ]]; then
-        find "$ACTIVE_PROJECT/system" -type f -iname "*.apk" | (while read APK; do
+        find "$ACTIVE_PROJECT/system" -type f -iname "*.apk" | (while read -r APK; do
             ZIPALIGN_FILE "$APK" &
         done
         wait)
     else
-        find "$ACTIVE_PROJECT/system" -type f -iname "*.apk" | while read APK; do
+        find "$ACTIVE_PROJECT/system" -type f -iname "*.apk" | while read -r APK; do
             ZIPALIGN_FILE "$APK"
         done
     fi
@@ -1197,13 +1220,13 @@ DEBLOAT() {
             echo
             echo "Currently available cleaning lists:"
             PRINT_LINE
-            find "files/bloat" -mindepth 1 -maxdepth 1 -type d | sort | while read line; do
+            find "files/bloat" -mindepth 1 -maxdepth 1 -type d | sort | while read -r line; do
                 basename "$line"
             done
             PRINT_LINE
             echo
             echo "Type any of detected lists above or 'x' to abort"
-            read -p "Your list: " LIST
+            read -rp "Your list: " LIST
             PRINT_LINE
 
             if [[ "$LIST" = "x" ]]; then
@@ -1280,10 +1303,7 @@ ADB() {
 # Prints banner
 PRINT_BANNER() {
     clear
-    echo "/====\\                   |   | |   | \\  /  /===\\"
-    echo "|    | |\\  | |==\\  \\  /  |---| |===|  \\/   |   | /---\\"
-    echo "|----| | \\ | |   |  \\/   |   |     |  /\\   |   | |"
-    echo "|    | |  \\| |==/   /    |   |     | /  \\  \\===/ |"
+    echo "SimpleKitchen - Version $VERSION"
     echo
     echo "Originally developed by 'JustArchi' - Revived by 'johndah4x0r'"
     echo "Original thread: ${XDALINK}"
@@ -1292,10 +1312,7 @@ PRINT_BANNER() {
 
 PRINT_BANNER_NEUTRAL() {
     clear
-    echo "/====\\                   |   | |   | \\  /  /===\\"
-    echo "|    | |\\  | |==\\  \\  /  |---| |===|  \\/   |   | /---\\"
-    echo "|----| | \\ | |   |  \\/   |   |     |  /\\   |   | |"
-    echo "|    | |  \\| |==/   /    |   |     | /  \\  \\===/ |"
+    echo "SimpleKitchen - Version $VERSION"
     PRINT_LINE
 }
 # Prints status of the project
@@ -1402,7 +1419,7 @@ PRINT_MORE_STATUS() {
     echo "Originally developed by 'JustArchi' - Forked & revived by 'johndah4x0r'"
     echo "Original thread: ${XDALINK}"
     echo
-    read -p "Press Enter to continue..." junk
+    read -rp "Press Enter to continue..." junk
     return
 }
 
@@ -1436,17 +1453,17 @@ PAGE_SETTINGS() {
             echo "[NO]"
         fi
         PRINT_LINE
-        echo "Full performance mode tries to finish common h4x0r tasks ASAP"
+        echo "Full performance mode tries to finish common tasks ASAP"
         echo "This includes i.e. calling all job threads at once and waiting for them to"
         echo "finish instead of calling them one-by-one and blocking main thread"
         echo "Due to that, OS may become unresponsive when AndyH4x0r is performing a task"
         echo "Usually it's a good idea to keep it ON, unless you have a very good reason"
-        echo "for forcing the h4x0r to run in a single-thread mode"
+        echo "for forcing the kitchen to run in  single-thread mode"
         PRINT_LINE
         echo "p - Full performance switch"
         echo "x - Go back"
         PRINT_LINE
-        read -p "CHOICE: " CHOICE
+        read -rp "CHOICE: " CHOICE
         case "$CHOICE" in
             p|P)
                 if [[ "$FULLPERFORMANCE" -eq 1 ]]; then
@@ -1461,10 +1478,11 @@ PAGE_SETTINGS() {
 }
 
 # Auto-update feature of AndyH4x0r
-CHECK_UPDATE() {
+CHECK_UPDATE() (
     if [[ -d ".git" && ! -z "$(which git)" ]]; then
         echo "Auto-update in progress..."
-        local GITVERSION="$(git --version | cut -d' ' -f3)"
+
+        GITVERSION="$(git --version | cut -d' ' -f3)"
         if VERSION_LESS_THAN "$GITVERSION" "$NEEDEDGIT"; then
             echo
             echo "WARNING: Your git version is lower than the required!"
@@ -1482,9 +1500,9 @@ CHECK_UPDATE() {
             PRESS_ENTER
             return 0
         fi
-        local REPO="origin"
-        local OLDHEAD="$(git rev-parse HEAD)"
-        local CURBRANCH="$(git rev-parse --abbrev-ref HEAD)"
+        REPO="origin"
+        OLDHEAD="$(git rev-parse HEAD)"
+        CURBRANCH="$(git rev-parse --abbrev-ref HEAD)"
         if [[ "$CURBRANCH" != "$GITHUBBRANCH" ]]; then
             echo "You're currently using $CURBRANCH branch, and this is not the default $GITHUBBRANCH branch. Auto-update feature has been disabled"
             PRESS_ENTER
@@ -1495,7 +1513,8 @@ CHECK_UPDATE() {
         fi
         echo "Fetching current version..."
         git fetch -q "$REPO" "$GITHUBBRANCH"
-        local HEAD="$(git rev-parse "$REPO/$GITHUBBRANCH")"
+
+        HEAD="$(git rev-parse "$REPO/$GITHUBBRANCH")"
         if [[ ! -z "$HEAD" && "$OLDHEAD" != "$HEAD" ]]; then
             echo "Found new version!"
             echo "Changelog:"
@@ -1512,7 +1531,7 @@ CHECK_UPDATE() {
             sleep 1
         fi
     fi
-}
+)
 
 # Kernel options
 KERNEL_OPTS() {
@@ -1531,7 +1550,7 @@ KERNEL_OPTS() {
             echo "ku    - Unpack kernel (this enables more options!)"
         fi
             echo "x     - Return to main menu"
-        read -p "CHOICE: " OPT
+        read -rp "CHOICE: " OPT
         case $OPT in
             i|I) INITD; break ;;
             adb|ADB) ADB ;;
@@ -1659,7 +1678,7 @@ while :; do
     PRINT_PROJECT_STATUS
     PRINT_ROM_STATUS
     PRINT_SWITCHES
-    read -p "CHOICE: " CHOICE
+    read -rp "CHOICE: " CHOICE
     case "$CHOICE" in
         ak|AK) PAGE_SETTINGS ;;
         adi|ADI) ARCHIDROID_INITD ;;
