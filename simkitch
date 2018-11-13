@@ -1,12 +1,9 @@
 #!/bin/bash
 #
-# /====\                   |   | |   |      /===\
-# |    | |\  | |==\  \  /  |---| |===| \  / |   | /---\
-# |----| | \ | |   |  \/   |   |    |   \/  |   | |
-# |    | |  \| |==/   /    |   |    |  / \  \===/ |
+# SimpleKitchen
 #
-# Previously owned by: 'JustArchi'
-# Author: JohnDaH4x0r
+# Copyright 2018 John Isaac "johnDaH4x0r" Calderon
+# Contact: johnrexevery1 [at] gmail [dot] com
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +16,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
 
+# Set sensitivity to errors
 set +e
 
 # Initial variables
@@ -28,8 +27,8 @@ TEMPDIR="TEMP"
 TOOLSDIR="tools"
 TOOLS=(which whoami basename dirname gcc java perl sed cut wget od wc cpio zip unzip tar)
 XDALINK="http://forum.xda-developers.com/showthread.php?t=2597220"
-GITHUBLINK="https://github.com/johndah4x0r/AndyH4x0r.git"
-AUTOUPDATE="1" # Defines if we should turn on auto updates, if available
+GITHUBLINK="https://github.com/johndah4x0r/SimpleKitchen.git"
+AUTOUPDATE="1"  # Defines if we should turn on auto updates, if available
 GITHUBBRANCH="master"
 NEEDEDGIT="1.8"
 ACTIVE_PROJECT=""
@@ -121,7 +120,7 @@ BLACKLIST_CLEAN() {
             if [[ -z "$line" || "$line" = \#* ]]; then
                 continue
             fi
-            local TARGETS="$(echo "$line" | awk '{print $1}' | cut -d '"' -f2)"
+            local TARGETS="$(echo "$line" | awk '{print $1}' | cut -d '"' -f2)#
             case "$TARGETS" in
                 /*) ;;
                 *.apk)
